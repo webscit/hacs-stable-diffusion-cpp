@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+cd "$(dirname "$0")/.."
+
+export PYTHONPATH="${PYTHONPATH}:$(pwd)/custom_components"
+
+uv run hass --config ./config --debug

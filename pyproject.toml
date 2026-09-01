@@ -1,0 +1,67 @@
+[project]
+name = "hacs-stable-diffusion-cpp"
+version = "0.1.0"
+description = "HACS integration providing an ai_task GENERATE_IMAGE entity backed by stable-diffusion.cpp"
+# Tracks the pinned dev-dependency homeassistant==2026.8.3 below, not a
+# requirement of the shipped custom_components/ code itself (HACS doesn't
+# read this file; the running HA core controls the actual Python version).
+requires-python = ">=3.14.2"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  # Pinned to the latest stable release (not a pre-release/beta) so tests run
+  # against a build pytest-homeassistant-custom-component actually supports.
+  "homeassistant==2026.8.3",
+  "pytest-homeassistant-custom-component",
+  "pytest-asyncio",
+  "ruff",
+  # Transitive runtime requirements of homeassistant.components.conversation
+  # and .camera, both dependencies of ai_task, not installed automatically in
+  # the test sandbox (HA normally installs a component's own requirements
+  # on demand; the test sandbox has network/pip install disabled).
+  "gazetteer-matcher",
+  "hassil",
+  "home-assistant-intents",
+  "pyturbojpeg",
+]
+
+[tool.ruff]
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "D203",     # one-blank-line-before-class: conflicts with D211
+  "D213",     # multi-line-summary-second-line: conflicts with D212
+  "COM812",   # missing-trailing-comma: conflicts with formatter
+  "ISC001",   # single-line-implicit-string-concatenation: conflicts with formatter
+  "CPY001",   # missing-copyright-notice: not used in this project
+  "TC001",    # typing-only-first-party-import: not worth the indirection here
+  "TC002",    # typing-only-third-party-import: not worth the indirection here
+  "TC003",    # typing-only-standard-library-import: not worth the indirection here
+  "ARG001",   # unused-function-argument: HA callback signatures require args we don't all use
+  "ARG004",   # unused-static-method-argument: same as above
+  "PLR0913",  # too-many-arguments: inherent to the generation API's parameter shape
+  "EM101",    # raw-string-in-exception: not worth an extra variable for short messages
+  "EM102",    # f-string-in-exception: same as above
+  "TRY003",   # raise-vanilla-args: same as above
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+  "S101",     # assert: standard in pytest tests
+  "PLR2004",  # magic-value-comparison: literals in test assertions are fine
+  "SLF001",   # private-member-access: tests exercise HA's leading-underscore hook methods
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = []

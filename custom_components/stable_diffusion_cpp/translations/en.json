@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Connect to your self-hosted stable-diffusion.cpp server.",
+        "data": {
+          "base_url": "Server URL"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the stable-diffusion.cpp server."
+    },
+    "abort": {
+      "already_configured": "This server is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "Default image generation parameters used for every AI Task call.",
+        "data": {
+          "negative_prompt": "Negative prompt",
+          "steps": "Sampling steps",
+          "cfg_scale": "CFG scale",
+          "sampler": "Sampler",
+          "seed": "Seed (-1 for a random seed on every call)",
+          "width": "Image width",
+          "height": "Image height",
+          "output_format": "Output format",
+          "output_compression": "Output compression (0-100)"
+        }
+      }
+    }
+  }
+}

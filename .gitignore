@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Home Assistant dev instance (scripts/develop)
+config/.storage/
+config/*.log
+config/home-assistant_v2.db
+config/home-assistant_v2.db-*
+
+# Editors
+.vscode/
+.idea/
