@@ -251,6 +251,20 @@ def _form_fields(form: aiohttp.FormData) -> dict[str, list]:
     return fields
 
 
+async def test_edit_image_requires_at_least_one_image(
+    client: StableDiffusionCppClient,
+) -> None:
+    """An empty image list is rejected client-side rather than sent.
+
+    Verified against a live server: with no file field, aiohttp.FormData
+    silently falls back to application/x-www-form-urlencoded, which sd.cpp
+    rejects with a confusing "Content-Type must be multipart/form-data"
+    error instead of a clear "no image" one.
+    """
+    with pytest.raises(ValueError, match="at least one image"):
+        await client.async_edit_image("edit", [], width=512, height=512)
+
+
 async def test_edit_image_success(
     client: StableDiffusionCppClient, aioclient_mock: AiohttpClientMocker
 ) -> None:

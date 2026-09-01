@@ -150,6 +150,16 @@ class StableDiffusionCppClient:
         (examples/server/api.md) - the preferred field for one or more
         reference images; the legacy singular `image` field isn't needed.
         """
+        if not images:
+            # aiohttp.FormData only switches Content-Type to multipart/
+            # form-data once a field carries a filename; with no images at
+            # all it would silently send application/x-www-form-urlencoded
+            # instead, which the server rejects with a confusing "Content-
+            # Type must be multipart/form-data" - verified against a live
+            # server - rather than a clear "no image" error.
+            msg = "async_edit_image requires at least one image"
+            raise ValueError(msg)
+
         full_prompt = self.build_prompt(
             prompt,
             self._collect_extra_args_options(
