@@ -12,6 +12,11 @@ server as an [`ai_task`](https://www.home-assistant.io/integrations/ai_task/)
 - Adds an `ai_task` entity that generates images via the `ai_task.generate_image`
   action, backed by your own stable-diffusion.cpp server.
 - Talks to stable-diffusion.cpp's OpenAI-like `/v1/images/generations` endpoint.
+- When the `ai_task.generate_image` call includes one or more image
+  attachments (e.g. a camera snapshot or an image from media source), the
+  integration edits the provided image(s) via stable-diffusion.cpp's
+  `/v1/images/edits` endpoint instead of generating from scratch. A non-image
+  attachment is rejected with a clear error rather than sent to the server.
 - Default generation parameters (sampling steps, CFG scale, sampler, seed,
   negative prompt, image size, output format) are configured once via the
   integration's Options, since HA's `ai_task` action only ever passes a
@@ -59,6 +64,10 @@ generation parameters used for every `ai_task.generate_image` call:
 | Image width / height   | Requested output size                     | 512x512 |
 | Output format          | `png`, `jpeg`, or `webp`                  | png     |
 | Output compression     | Compression level (0-100)                 | 0       |
+
+These options apply the same way to image edits: the source image(s) are
+resized to the configured width/height, and the same steps/CFG scale/sampler/
+seed/negative prompt are used.
 
 ## Development
 

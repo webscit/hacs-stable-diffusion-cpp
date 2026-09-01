@@ -6,6 +6,7 @@ import asyncio
 import base64
 import binascii
 import json
+import mimetypes
 from dataclasses import dataclass
 from typing import Any
 
@@ -92,19 +93,16 @@ class StableDiffusionCppClient:
         seed: int | None = None,
     ) -> GeneratedImage:
         """Generate an image and return the decoded result."""
-        options: dict[str, Any] = {}
-        if negative_prompt:
-            options["negative_prompt"] = negative_prompt
-        if seed is not None:
-            options["seed"] = seed
-        if steps is not None:
-            options["steps"] = steps
-        if cfg_scale is not None:
-            options["cfg_scale"] = cfg_scale
-        if sampler is not None:
-            options["sampler"] = sampler
-
-        full_prompt = self.build_prompt(prompt, options)
+        full_prompt = self.build_prompt(
+            prompt,
+            self._collect_extra_args_options(
+                negative_prompt=negative_prompt,
+                steps=steps,
+                cfg_scale=cfg_scale,
+                sampler=sampler,
+                seed=seed,
+            ),
+        )
         payload = {
             "prompt": full_prompt,
             "n": 1,
@@ -129,6 +127,94 @@ class StableDiffusionCppClient:
             raise SDCppConnectionError(str(err)) from err
 
         return self._parse_generation_response(body, output_format, width, height)
+
+    async def async_edit_image(
+        self,
+        prompt: str,
+        images: list[tuple[bytes, str]],
+        *,
+        width: int,
+        height: int,
+        output_format: str = "png",
+        output_compression: int = 0,
+        negative_prompt: str | None = None,
+        steps: int | None = None,
+        cfg_scale: float | None = None,
+        sampler: str | None = None,
+        seed: int | None = None,
+    ) -> GeneratedImage:
+        """Edit one or more source images and return the decoded result.
+
+        `images` is a list of (raw bytes, mime type) pairs, sent as repeated
+        `image[]` multipart fields per sd.cpp's documented edits schema
+        (examples/server/api.md) - the preferred field for one or more
+        reference images; the legacy singular `image` field isn't needed.
+        """
+        full_prompt = self.build_prompt(
+            prompt,
+            self._collect_extra_args_options(
+                negative_prompt=negative_prompt,
+                steps=steps,
+                cfg_scale=cfg_scale,
+                sampler=sampler,
+                seed=seed,
+            ),
+        )
+
+        form = aiohttp.FormData()
+        form.add_field("prompt", full_prompt)
+        form.add_field("n", "1")
+        form.add_field("size", f"{width}x{height}")
+        form.add_field("output_format", output_format)
+        form.add_field("output_compression", str(output_compression))
+        for image_data, mime_type in images:
+            extension = mimetypes.guess_extension(mime_type) or ".png"
+            form.add_field(
+                "image[]",
+                image_data,
+                filename=f"image{extension}",
+                content_type=mime_type,
+            )
+
+        try:
+            async with asyncio.timeout(TIMEOUT):
+                resp = await self._session.post(
+                    f"{self._base_url}/v1/images/edits", data=form
+                )
+                body = await resp.json()
+                if resp.status != HTTP_OK:
+                    raise SDCppServerError(
+                        self._extract_error_message(body), resp.status
+                    )
+        except TimeoutError as err:
+            raise SDCppConnectionError("Timeout editing image") from err
+        except aiohttp.ClientError as err:
+            raise SDCppConnectionError(str(err)) from err
+
+        return self._parse_generation_response(body, output_format, width, height)
+
+    @staticmethod
+    def _collect_extra_args_options(
+        *,
+        negative_prompt: str | None,
+        steps: int | None,
+        cfg_scale: float | None,
+        sampler: str | None,
+        seed: int | None,
+    ) -> dict[str, Any]:
+        """Collect the generation options actually set, for build_prompt."""
+        options: dict[str, Any] = {}
+        if negative_prompt:
+            options["negative_prompt"] = negative_prompt
+        if seed is not None:
+            options["seed"] = seed
+        if steps is not None:
+            options["steps"] = steps
+        if cfg_scale is not None:
+            options["cfg_scale"] = cfg_scale
+        if sampler is not None:
+            options["sampler"] = sampler
+        return options
 
     @staticmethod
     def build_prompt(prompt: str, options: dict[str, Any]) -> str:

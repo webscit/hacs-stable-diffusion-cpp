@@ -55,7 +55,10 @@ class SDCppTaskEntity(SDCppEntity, ai_task.AITaskEntity):
     """AI Task entity backed by a stable-diffusion.cpp server."""
 
     _attr_name = "Image generation"
-    _attr_supported_features = ai_task.AITaskEntityFeature.GENERATE_IMAGE
+    _attr_supported_features = (
+        ai_task.AITaskEntityFeature.GENERATE_IMAGE
+        | ai_task.AITaskEntityFeature.SUPPORT_ATTACHMENTS
+    )
 
     def __init__(self, entry: SDCppConfigEntry) -> None:
         """Initialize the entity."""
@@ -67,7 +70,7 @@ class SDCppTaskEntity(SDCppEntity, ai_task.AITaskEntity):
         task: ai_task.GenImageTask,
         chat_log: conversation.ChatLog,
     ) -> ai_task.GenImageTaskResult:
-        """Handle a generate image task."""
+        """Handle a generate (or, with attachments, edit) image task."""
         client = self._entry.runtime_data.client
         options = self._entry.options
 
@@ -87,8 +90,38 @@ class SDCppTaskEntity(SDCppEntity, ai_task.AITaskEntity):
             if conf_key in options:
                 kwargs[kwarg_name] = options[conf_key]
 
+        images: list[tuple[bytes, str]] = []
+        if task.attachments:
+            non_image = [
+                attachment
+                for attachment in task.attachments
+                if not attachment.mime_type.startswith("image/")
+            ]
+            if non_image:
+                raise HomeAssistantError(
+                    "Unsupported attachment type for image editing: "
+                    f"{non_image[0].mime_type}"
+                )
+            try:
+                images = [
+                    (
+                        await self.hass.async_add_executor_job(
+                            attachment.path.read_bytes
+                        ),
+                        attachment.mime_type,
+                    )
+                    for attachment in task.attachments
+                ]
+            except OSError as err:
+                raise HomeAssistantError(f"Error reading attachment: {err}") from err
+
         try:
-            image = await client.async_generate_image(task.instructions, **kwargs)
+            if images:
+                image = await client.async_edit_image(
+                    task.instructions, images, **kwargs
+                )
+            else:
+                image = await client.async_generate_image(task.instructions, **kwargs)
         except SDCppApiError as err:
             raise HomeAssistantError(f"Error generating image: {err}") from err
 

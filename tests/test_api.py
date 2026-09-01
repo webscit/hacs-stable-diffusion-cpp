@@ -236,3 +236,120 @@ async def test_get_models_connection_error(
     )
     with pytest.raises(SDCppConnectionError):
         await client.async_get_models()
+
+
+def _form_fields(form: aiohttp.FormData) -> dict[str, list]:
+    """Extract {field name: [values]} from a FormData for test assertions.
+
+    aiohttp.FormData has no public introspection API; `_fields` is the
+    documented-by-source internal representation (options MultiDict, headers,
+    value) built by `add_field`/`add_fields`.
+    """
+    fields: dict[str, list] = {}
+    for options, _headers, value in form._fields:
+        fields.setdefault(options["name"], []).append(value)
+    return fields
+
+
+async def test_edit_image_success(
+    client: StableDiffusionCppClient, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A successful edit posts multipart form data and decodes the result."""
+    aioclient_mock.post(
+        f"{BASE_URL}/v1/images/edits",
+        json={"output_format": "png", "data": [{"b64_json": FAKE_B64}]},
+    )
+    image = await client.async_edit_image(
+        "make it blue",
+        [(b"sourcebytes", "image/png")],
+        width=512,
+        height=512,
+    )
+
+    assert image.image_data == FAKE_PNG_BYTES
+    assert image.mime_type == "image/png"
+    assert image.width == 512
+    assert image.height == 512
+
+    assert aioclient_mock.call_count == 1
+    _, _, form, _ = aioclient_mock.mock_calls[0]
+    assert isinstance(form, aiohttp.FormData)
+    fields = _form_fields(form)
+    assert fields["prompt"] == ["make it blue"]
+    assert fields["n"] == ["1"]
+    assert fields["size"] == ["512x512"]
+    assert fields["output_format"] == ["png"]
+    assert fields["output_compression"] == ["0"]
+    assert fields["image[]"] == [b"sourcebytes"]
+
+
+async def test_edit_image_multiple_images(
+    client: StableDiffusionCppClient, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Every attachment is sent as a separate image[] field, per sd.cpp's docs."""
+    aioclient_mock.post(
+        f"{BASE_URL}/v1/images/edits",
+        json={"data": [{"b64_json": FAKE_B64}]},
+    )
+    await client.async_edit_image(
+        "combine these",
+        [(b"first", "image/png"), (b"second", "image/jpeg")],
+        width=512,
+        height=512,
+    )
+
+    _, _, form, _ = aioclient_mock.mock_calls[0]
+    assert _form_fields(form)["image[]"] == [b"first", b"second"]
+
+
+async def test_edit_image_embeds_extra_args_in_prompt_field(
+    client: StableDiffusionCppClient, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Generation options are embedded in the prompt field, same as generations."""
+    aioclient_mock.post(
+        f"{BASE_URL}/v1/images/edits",
+        json={"data": [{"b64_json": FAKE_B64}]},
+    )
+    await client.async_edit_image(
+        "make it blue",
+        [(b"sourcebytes", "image/png")],
+        width=512,
+        height=512,
+        seed=7,
+    )
+
+    _, _, form, _ = aioclient_mock.mock_calls[0]
+    prompt = _form_fields(form)["prompt"][0]
+    assert prompt == '<sd_cpp_extra_args>{"seed": 7}</sd_cpp_extra_args>make it blue'
+
+
+async def test_edit_image_400_error(
+    client: StableDiffusionCppClient, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A 400 response raises SDCppServerError, same mapping as generations."""
+    aioclient_mock.post(
+        f"{BASE_URL}/v1/images/edits",
+        status=400,
+        json={"error": "at least one image[] required"},
+    )
+    with pytest.raises(SDCppServerError) as exc_info:
+        await client.async_edit_image(
+            "edit", [(b"x", "image/png")], width=512, height=512
+        )
+
+    assert exc_info.value.status == 400
+    assert str(exc_info.value) == "at least one image[] required"
+
+
+async def test_edit_image_connection_error(
+    client: StableDiffusionCppClient, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A connection failure raises SDCppConnectionError."""
+    aioclient_mock.post(
+        f"{BASE_URL}/v1/images/edits",
+        exc=aiohttp.ClientConnectionError("boom"),
+    )
+    with pytest.raises(SDCppConnectionError):
+        await client.async_edit_image(
+            "edit", [(b"x", "image/png")], width=512, height=512
+        )
