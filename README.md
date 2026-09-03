@@ -32,7 +32,7 @@ A running stable-diffusion.cpp server with its bundled HTTP server
 ### HACS (recommended)
 
 1. In HACS, go to **Integrations** → the **⋮** menu → **Custom repositories**.
-2. Add `https://github.com/fcollonval/hacs-stable-diffusion-cpp` as an
+2. Add `https://github.com/webscit/hacs-stable-diffusion-cpp` as an
    **Integration**.
 3. Search for "Stable Diffusion cpp" in HACS and install it.
 4. Restart Home Assistant.

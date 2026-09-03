@@ -4,10 +4,10 @@
   "codeowners": ["@fcollonval"],
   "config_flow": true,
   "dependencies": ["ai_task"],
-  "documentation": "https://github.com/fcollonval/hacs-stable-diffusion-cpp",
+  "documentation": "https://github.com/webscit/hacs-stable-diffusion-cpp",
   "integration_type": "service",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/fcollonval/hacs-stable-diffusion-cpp/issues",
+  "issue_tracker": "https://github.com/webscit/hacs-stable-diffusion-cpp/issues",
   "requirements": [],
   "version": "0.2.0"
 }
