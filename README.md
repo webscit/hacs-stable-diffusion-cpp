@@ -69,6 +69,38 @@ These options apply the same way to image edits: the source image(s) are
 resized to the configured width/height, and the same steps/CFG scale/sampler/
 seed/negative prompt are used.
 
+## Examples
+
+I find the model Flux.2 Klein 9B very good if you can afford it.
+
+I run the server using a Docker container with the following settings:
+
+```sh
+docker run --rm -d --gpus all --name stable-diffusion \
+    -v /home/jethor/projects/stable-diffusion.cpp/models:/models:ro \
+    -p 47851:47851 \
+    --entrypoint /opt/sd-cpp/bin/sd-server \
+    sd-cpp:cuda13.0-thor \
+    -l 0.0.0.0 --listen-port 47851 -v \
+    --diffusion-model /models/diffusion_models/flux-2-klein-9b-Q8_0.gguf \
+    --vae /models/vae/flux2_klein_9b_vae.safetensors \
+    --llm /models/text_encoders/Qwen3-8B-UD-Q4_K_XL.gguf \
+    --cfg-scale 1.0 \
+    --steps 4 \
+    --height 1024 --width 1024 \
+    --diffusion-fa --sampling-method euler
+```
+
+The models used are those documented in stable-diffusion.cpp: https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/flux2.md#flux2-klein-9b--flux2-klein-base-9b
+
+This is an example calling the generate image action with the prompt "A rider on a bicycle with a farm and ducks in the background in a foggy morning.".
+Then if you call the same action, but this time with images as attachment, you switch in edition mode. Like in the example, I asked to replace the rider
+by a cartoonish duck.
+
+| Generation | Edition |
+| --- | --- |
+| ![bycicle farm fog and duck](2026-09-01_152042_duck_testb.png) | ![edit cartoon duck on bike](2026-09-01_152346_duckb_edit.png) |
+
 ## Development
 
 This project uses [uv](https://docs.astral.sh/uv/) for dependency management.
@@ -85,5 +117,8 @@ uv run pytest      # run the test suite
 Issues and pull requests are welcome.
 
 ## License
+
+The brand icon is the stable-diffusion.cpp web UI icon part of https://github.com/leejet/sdcpp-webui,
+released under MIT License and Copyright (c) 2026 leejet
 
 MIT — see [LICENSE](LICENSE).
